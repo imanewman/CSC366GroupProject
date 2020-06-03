@@ -1,7 +1,8 @@
 from django.test import TestCase
+from django import db
 
 from business.models import Supplier, StockItem, \
-    SupplierInvoice, Location
+    SupplierInvoice, Location, SupplierInvoiceLine
 
 
 class SupplierTestCase(TestCase):
@@ -100,14 +101,75 @@ class SupplierTestCase(TestCase):
 
         self.assertEqual(SupplierInvoice.objects.count(), 1)
 
+    # test that creating an invoice and linking an item fails
+    # without first having an invoice line
+    def test_fail_create_supplier_invoice_no_lines(self):
+        supplier = Supplier.objects.create(
+            email="test_suppier_0@calpoly.edu",
+            name="test supplier 0"
+        )
+
+        location = Location.objects.create(
+            name="test location 0"
+        )
+
+        item = StockItem.objects.create(
+            name="test stock item 0"
+        )
+
+        invoice = SupplierInvoice.objects.create(
+            supplierId=supplier,
+            location=location,
+            amount=1,
+            date="2020-06-03"
+        )
+
+        self.assertRaises(
+            db.utils.IntegrityError,
+            lambda: invoice.items.set([item])
+        )
+
+    #################
+    # Invoice Lines #
+    #################
+    def test_create_supplier_invoice_1_item(self):
+        supplier = Supplier.objects.create(
+            email="test_suppier_0@calpoly.edu",
+            name="test supplier 0"
+        )
+
+        location = Location.objects.create(
+            name="test location 0"
+        )
+
+        item = StockItem.objects.create(
+            name="test stock item 0"
+        )
+
+        invoice = SupplierInvoice.objects.create(
+            supplierId=supplier,
+            location=location,
+            amount=1,
+            date="2020-06-03"
+        )
+
+        SupplierInvoiceLine.objects.create(
+            stockItem=item,
+            supplierInvoice=invoice,
+            qty=1,
+            costPerItem=10
+        )
+
+        invoice.items.set([item])
+
+        self.assertEqual(invoice.items.get(), item)
+
     # tests that deleting a supplier also deletes invoices from them
     def test_delete_supplier_cascade_invoice(self):
-        supplier_data = {
-            "email": "test_suppier_0@calpoly.edu",
-            "name": "test supplier 0"
-        }
-
-        supplier = Supplier.objects.create(**supplier_data)
+        supplier = Supplier.objects.create(
+            email="test_suppier_0@calpoly.edu",
+            name="test supplier 0"
+        )
 
         location = Location.objects.create(
             name="test location 0"
@@ -128,4 +190,45 @@ class SupplierTestCase(TestCase):
 
         supplier.delete()
 
+        self.assertEqual(Supplier.objects.count(), 0)
         self.assertEqual(SupplierInvoice.objects.count(), 0)
+        self.assertEqual(Location.objects.count(), 1)
+
+    # tests that deleting a supplier also deletes lines of related invoices
+    def test_delete_supplier_cascade_invoice_lines(self):
+        supplier = Supplier.objects.create(
+            email="test_suppier_0@calpoly.edu",
+            name="test supplier 0"
+        )
+
+        location = Location.objects.create(
+            name="test location 0"
+        )
+
+        item = StockItem.objects.create(
+            name="test stock item 0"
+        )
+
+        invoice = SupplierInvoice.objects.create(
+            supplierId=supplier,
+            location=location,
+            amount=1,
+            date="2020-06-03"
+        )
+
+        SupplierInvoiceLine.objects.create(
+            stockItem=item,
+            supplierInvoice=invoice,
+            qty=1,
+            costPerItem=10
+        )
+
+        invoice.items.set([item])
+
+        supplier.delete()
+
+        self.assertEqual(Supplier.objects.count(), 0)
+        self.assertEqual(SupplierInvoice.objects.count(), 0)
+        self.assertEqual(SupplierInvoiceLine.objects.count(), 0)
+        self.assertEqual(StockItem.objects.count(), 1)
+        self.assertEqual(Location.objects.count(), 1)
