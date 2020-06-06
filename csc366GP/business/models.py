@@ -37,7 +37,7 @@ class LocationExpenses(models.Model):
    amount = models.FloatField()
    expenseName = models.CharField(max_length=200)
 
-class EmployementRecod(models.Model):
+class EmploymentRecord(models.Model):
    emplId = models.ForeignKey(Employee, models.SET_NULL, null=True, to_field="emplId")
    startDate = models.DateField()
    endDate = models.DateField(blank = True)
